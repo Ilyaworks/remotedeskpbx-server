@@ -1,7 +1,7 @@
 import Fastify from 'fastify';
 import fastifyWebSocket from '@fastify/websocket';
 
-const fastify = Fastify({ logger: false });
+const fastify = Fastify({ logger: true });
 fastify.register(fastifyWebSocket);
 
 // Wake-up endpoint (Render free plan goes to sleep)
@@ -20,8 +20,10 @@ function generateCode() {
   return code;
 }
 
-fastify.get('/ws', { websocket: true }, (socket) => {
-  socket.on('message', (raw) => {
+fastify.get('/ws', { websocket: true }, (connection, request) => {
+  const ws = connection.socket;
+  
+  ws.on('message', (raw) => {
     try {
       const msg = JSON.parse(raw.toString());
       const { type } = msg;
@@ -29,10 +31,10 @@ fastify.get('/ws', { websocket: true }, (socket) => {
       if (type === 'register-host') {
         const code = generateCode();
         const roomId = `room_${code}`;
-        sessions.set(roomId, { ws: socket, code, viewer: null });
+        sessions.set(roomId, { ws, code, viewer: null });
         codes.set(code, roomId);
         console.log(`\n✅ Host registered! Code: ${code}`);
-        socket.send(JSON.stringify({ type: 'code', code }));
+        ws.send(JSON.stringify({ type: 'code', code }));
         return;
       }
 
@@ -40,21 +42,21 @@ fastify.get('/ws', { websocket: true }, (socket) => {
         const { code } = msg;
         const roomId = codes.get(code);
         if (!roomId) {
-          socket.send(JSON.stringify({ type: 'error', msg: 'Invalid code' }));
+          ws.send(JSON.stringify({ type: 'error', msg: 'Invalid code' }));
           return;
         }
         const session = sessions.get(roomId);
         if (!session) {
-          socket.send(JSON.stringify({ type: 'error', msg: 'Session expired' }));
+          ws.send(JSON.stringify({ type: 'error', msg: 'Session expired' }));
           return;
         }
         if (session.viewer) {
-          socket.send(JSON.stringify({ type: 'error', msg: 'Already have a viewer' }));
+          ws.send(JSON.stringify({ type: 'error', msg: 'Already have a viewer' }));
           return;
         }
-        session.viewer = socket;
+        session.viewer = ws;
         console.log(`✅ Viewer connected to code: ${code}`);
-        socket.send(JSON.stringify({ type: 'joined', roomId }));
+        ws.send(JSON.stringify({ type: 'joined', roomId }));
         session.ws.send(JSON.stringify({ type: 'viewer-joined' }));
         return;
       }
@@ -73,19 +75,21 @@ fastify.get('/ws', { websocket: true }, (socket) => {
         const target = msg.role === 'host' ? session.viewer : session.ws;
         if (target) target.send(raw.toString());
       }
-    } catch {}
+    } catch (e) {
+      console.error('Error handling message:', e);
+    }
   });
 
-  socket.on('close', () => {
+  ws.on('close', () => {
     for (const [roomId, s] of sessions) {
-      if (s.ws === socket) {
+      if (s.ws === ws) {
         if (s.viewer) s.viewer.send(JSON.stringify({ type: 'host-disconnected' }));
         codes.delete(s.code);
         sessions.delete(roomId);
         console.log(`❌ Room ${roomId} closed (host left)`);
         return;
       }
-      if (s.viewer === socket) {
+      if (s.viewer === ws) {
         s.viewer = null;
         s.ws.send(JSON.stringify({ type: 'viewer-disconnected' }));
         return;
