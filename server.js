@@ -1,7 +1,7 @@
 import Fastify from 'fastify';
 import fastifyWebSocket from '@fastify/websocket';
 
-const fastify = Fastify({ logger: { transport: { target: 'pino-pretty' } } });
+const fastify = Fastify({ logger: false });
 fastify.register(fastifyWebSocket);
 
 const sessions = new Map();
