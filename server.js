@@ -4,6 +4,11 @@ import fastifyWebSocket from '@fastify/websocket';
 const fastify = Fastify({ logger: false });
 fastify.register(fastifyWebSocket);
 
+// Wake-up endpoint (Render free plan goes to sleep)
+fastify.get('/', async () => {
+  return { ok: true, time: Date.now() };
+});
+
 const sessions = new Map();
 const codes = new Map();
 
