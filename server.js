@@ -81,11 +81,12 @@ function addMessage(role, code, msg) {
 app.post('/register', (req, res) => {
   const code = generateCode();
   rooms.set(code, { host: null, viewers: [] });
+  const id = crypto.randomUUID();
   const sessions = readJSON('sessions.json');
-  sessions.push({ id: crypto.randomUUID(), code, employee: null, employeeName: null, startTime: new Date().toISOString(), endTime: null, duration: null, durationSeconds: null });
+  sessions.push({ id, code, employee: null, employeeName: null, startTime: new Date().toISOString(), endTime: null, duration: null, durationSeconds: null });
   writeJSON('sessions.json', sessions);
   addMessage('host', code, { type: 'code', code });
-  res.json({ type: 'code', code });
+  res.json({ type: 'code', code, sessionId: id });
 });
 
 app.post('/join', (req, res) => {
