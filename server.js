@@ -305,12 +305,32 @@ app.get('/admin', (req, res) => {
         if (empRes.status === 401) { document.getElementById('login-error').textContent='Неверный пароль'; document.getElementById('login-error').style.display='block'; return; }
         employees = await empRes.json();
         sessions = await (await fetch('/admin/sessions', { headers: { Authorization: token } })).json();
+        sessionStorage.setItem('rdpbx_admin_token', token);
         showDashboard();
       } catch(e) { document.getElementById('login-error').innerHTML='Ошибка: '+e.message; document.getElementById('login-error').style.display='block'; }
     }
 
+    async function initAuth() {
+      const saved = sessionStorage.getItem('rdpbx_admin_token');
+      if (!saved) { showPage(); return; }
+      token = saved;
+      try {
+        const r = await fetch('/admin/employees', { headers: { Authorization: token } });
+        if (!r.ok) { sessionStorage.removeItem('rdpbx_admin_token'); token=''; showPage(); return; }
+        employees = await r.json();
+        sessions = await (await fetch('/admin/sessions', { headers: { Authorization: token } })).json();
+        showDashboard();
+      } catch(e) { sessionStorage.removeItem('rdpbx_admin_token'); token=''; showPage(); }
+    }
+
+    function logout() {
+      sessionStorage.removeItem('rdpbx_admin_token');
+      token=''; employees=[]; sessions=[]; filterEmployee='';
+      showPage();
+    }
+
     function showDashboard() {
-      document.getElementById('app').innerHTML = '<h1>🛠️ RemoteDeskPBX Админ-панель</h1><div class="tabs"><div class="tab '+(currentTab==='employees'?'active':'')+'" onclick="switchTab(\\'employees\\')">👥 Сотрудники</div><div class="tab '+(currentTab==='sessions'?'active':'')+'" onclick="switchTab(\\'sessions\\')">📊 Сессии</div><div class="tab '+(currentTab==='settings'?'active':'')+'" onclick="switchTab(\\'settings\\')">⚙️ Настройки</div></div><div id="tab-content"></div>';
+      document.getElementById('app').innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px"><h1 style="margin:0">🛠️ RemoteDeskPBX Админ-панель</h1><button class="btn btn-danger btn-sm" onclick="logout()">Выйти</button></div><div class="tabs"><div class="tab '+(currentTab==='employees'?'active':'')+'" onclick="switchTab(\\'employees\\')">👥 Сотрудники</div><div class="tab '+(currentTab==='sessions'?'active':'')+'" onclick="switchTab(\\'sessions\\')">📊 Сессии</div><div class="tab '+(currentTab==='settings'?'active':'')+'" onclick="switchTab(\\'settings\\')">⚙️ Настройки</div></div><div id="tab-content"></div>';
       renderTab();
     }
 
@@ -366,7 +386,7 @@ app.get('/admin', (req, res) => {
       if (!a||!b) { alert('Заполните оба поля'); return; }
       const r=await (await fetch('/admin/change-password', { method:'POST', headers:{'Content-Type':'application/json',Authorization:token}, body:JSON.stringify({currentPassword:a,newPassword:b}) })).json();
       document.getElementById('settings-msg').innerHTML=r.type==='ok'?'<div class="success">✅ Пароль изменён</div>':'<div class="error">❌ '+(r.msg||'Ошибка')+'</div>';
-      if (r.type==='ok') { token='Bearer '+b; document.getElementById('cur-pass').value=''; document.getElementById('new-pass-admin').value=''; }
+      if (r.type==='ok') { token='Bearer '+b; sessionStorage.setItem('rdpbx_admin_token', token); document.getElementById('cur-pass').value=''; document.getElementById('new-pass-admin').value=''; }
     }
 
     async function loadScreenshots(id) {
@@ -382,7 +402,7 @@ app.get('/admin', (req, res) => {
     function navModal(d) { const n=currentScreenshotIndex+d; if (n<0||n>=screenshots.length) return; openModal(n); }
     document.addEventListener('keydown',e=>{ const m=document.getElementById('modal'); if(!m.classList.contains('active')) return; if(e.key==='Escape') closeModal(); if(e.key==='ArrowLeft') navModal(-1); if(e.key==='ArrowRight') navModal(1); });
     document.getElementById('modal').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeModal(); });
-    showPage();
+    initAuth();
   </script>
 </body>
 </html>`);
