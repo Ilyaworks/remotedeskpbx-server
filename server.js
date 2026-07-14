@@ -89,8 +89,17 @@ app.post('/register', (req, res) => {
 });
 
 app.post('/join', (req, res) => {
-  const { code } = req.body;
+  const { code, employeeLogin, employeeName } = req.body;
   if (!code || !rooms.has(code)) return res.json({ type: 'error', msg: 'Неверный код' });
+  if (employeeLogin || employeeName) {
+    const sessions = readJSON('sessions.json');
+    const session = sessions.find(s => s.code === code && !s.endTime);
+    if (session) {
+      session.employee = employeeLogin || session.employee;
+      session.employeeName = employeeName || session.employeeName;
+      writeJSON('sessions.json', sessions);
+    }
+  }
   addMessage('host', code, { type: 'viewer-joined' });
   res.json({ type: 'ok' });
 });
@@ -314,7 +323,7 @@ app.get('/admin', (req, res) => {
     }
 
     function renderEmployees(c) {
-      c.innerHTML = '<div class="card"><div class="card-header"><h2>👥 Сотрудники ('+employees.length+')</h2></div><div class="inline-form"><input id="new-login" placeholder="Логин"><input id="new-pass" type="password" placeholder="Пароль"><input id="new-name" placeholder="Имя"><button class="btn btn-success" onclick="addEmployee()">➕ Добавить</button></div><table><thead><tr><th>Логин</th><th>Имя</th><th>Статус</th><th>Создан</th><th>Сессии</th><th></th></tr></thead><tbody>'+employees.map(e=>{const es=sessions.filter(s=>s.employeeName===e.login); return '<tr><td>'+e.login+'</td><td>'+(e.name||e.login)+'</td><td><span class="badge '+(e.active!==false?'badge-active':'badge-inactive')+'">'+(e.active!==false?'Активен':'Неактивен')+'</span></td><td>'+(e.createdAt?dt(e.createdAt):'-')+'</td><td><a class="employee-link" onclick="filterByEmployee(\\''+(e.name||e.login)+'\\')">'+es.length+' сессий &rarr;</a></td><td><button class="btn btn-danger btn-sm" onclick="deleteEmployee(\\''+e.login+'\\')">Удалить</button></td></tr>';}).join('')+(employees.length===0?'<tr><td colspan="6" class="empty-state">Нет сотрудников</td></tr>':'')+'</tbody></table></div>';
+      c.innerHTML = '<div class="card"><div class="card-header"><h2>👥 Сотрудники ('+employees.length+')</h2></div><div class="inline-form"><input id="new-login" placeholder="Логин"><input id="new-pass" type="password" placeholder="Пароль"><input id="new-name" placeholder="Имя"><button class="btn btn-success" onclick="addEmployee()">➕ Добавить</button></div><table><thead><tr><th>Логин</th><th>Имя</th><th>Статус</th><th>Создан</th><th>Сессии</th><th></th></tr></thead><tbody>'+employees.map(e=>{const es=sessions.filter(s=>s.employee===e.login||s.employeeName===e.login); return '<tr><td>'+e.login+'</td><td>'+(e.name||e.login)+'</td><td><span class="badge '+(e.active!==false?'badge-active':'badge-inactive')+'">'+(e.active!==false?'Активен':'Неактивен')+'</span></td><td>'+(e.createdAt?dt(e.createdAt):'-')+'</td><td><a class="employee-link" onclick="filterByEmployee(\\''+e.login+'\\')">'+es.length+' сессий &rarr;</a></td><td><button class="btn btn-danger btn-sm" onclick="deleteEmployee(\\''+e.login+'\\')">Удалить</button></td></tr>';}).join('')+(employees.length===0?'<tr><td colspan="6" class="empty-state">Нет сотрудников</td></tr>':'')+'</tbody></table></div>';
     }
 
     function renderSessions(c) {
