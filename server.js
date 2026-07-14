@@ -304,7 +304,7 @@ app.get('/admin', (req, res) => {
       renderTab();
     }
 
-    function switchTab(t) { currentTab=t; renderTab(); }
+    function switchTab(t) { currentTab=t; showDashboard(); }
 
     function renderTab() {
       const c = document.getElementById('tab-content');
@@ -325,13 +325,13 @@ app.get('/admin', (req, res) => {
       c.innerHTML = '<div class="card"><div class="card-header"><h2>⚙️ Настройки</h2></div><div id="settings-msg"></div><div style="max-width:400px"><label style="font-weight:500;display:block;margin-bottom:8px;color:#555">Смена пароля администратора</label><div style="display:flex;flex-direction:column;gap:10px"><input id="cur-pass" type="password" placeholder="Текущий пароль"><input id="new-pass-admin" type="password" placeholder="Новый пароль (мин. 4 символа)"><button class="btn btn-primary" onclick="changePassword()">Сменить пароль</button></div></div></div>';
     }
 
-    function filterByEmployee(n) { filterEmployee=n; loadData(); }
+    function filterByEmployee(n) { filterEmployee=n; currentTab='sessions'; loadData(); }
     function clearFilter() { filterEmployee=''; loadData(); }
 
     async function loadData() {
       const r = await fetch('/admin/sessions'+(filterEmployee?'?employee='+encodeURIComponent(filterEmployee):''), { headers: { Authorization: token } });
       sessions = await r.json();
-      renderTab();
+      showDashboard();
     }
 
     async function addEmployee() {
